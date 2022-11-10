@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dynamixel_controller"
+version = "0.0.1"
+authors = [
+  { name="Haoran Sun", email="hrsun@cs.hku.hk" },
+]
+description = "Python controller interface with improved buck reading and writing for faster communication rate and lower latency."
+readme = "README.md"
+requires-python = ">=3.7"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/AlanSunHR/DynamixelController"
+"Bug Tracker" = "https://github.com/AlanSunHR/DynamixelController/issues"
