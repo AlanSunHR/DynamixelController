@@ -1,1 +1,1 @@
-DynamixelController
+dynamixel_controller

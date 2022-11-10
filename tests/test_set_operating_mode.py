@@ -20,17 +20,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-import os
-import sys
-
-test_dir = os.path.dirname(__file__)
-root_dir = os.path.dirname(test_dir)
-package_dir = os.path.join(root_dir, "src", "DynamixelController")
-
-sys.path.append(package_dir)
-
-from dynamixel_controller import DynamixelController
-from dynamixel_models import XM430W210
+from dynamixel_controller import DynamixelController, XM430W210
 
 motor10 = XM430W210(10)
 motor11 = XM430W210(11)
