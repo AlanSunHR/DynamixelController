@@ -188,6 +188,27 @@ class DynamixelController:
         data_list = [0x0] * len(self.__motor_ids)
         return self.torque_enable(data_list)
 
+    def led_enable(self, led_enable_list):
+        '''
+            Args;
+                led_enable_list: a list of led value, 0 for disable, 1 for enable
+        '''
+        return self.__sync_write("led", led_enable_list)
+
+    def led_on(self):
+        '''
+            Enable all leds
+        '''
+        led_enable_list = [0x1] * len(self.__motor_ids)
+        return self.led_enable(led_enable_list)
+
+    def led_off(self):
+        '''
+            Disable all leds
+        '''
+        led_enable_list = [0x0] * len(self.__motor_ids)
+        return self.led_enable(led_enable_list)
+
     def set_goal_current(self, current_list):
         return self.__sync_write("goal_current", current_list)
 
