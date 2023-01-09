@@ -85,6 +85,8 @@ class DynamixelController:
         self.__velocity_deg_scale = (0.229*360.0)/60.0 # degree/s
         self.__velocity_rad_scale = (self.__velocity_deg_scale/180.0)*np.pi
         self.__current_mA_scale = 2.69
+        self.__pwm_percent_scale = 0.11299
+        self.__max_voltage = 12.0
 
     def activate_controller(self):
         # Config motor list
@@ -118,8 +120,9 @@ class DynamixelController:
         self.__init_sync_writers()
 
         # init info reader
-        start_addr_info_reader = self.__motor_model.present_current.address
-        len_info_reader = self.__motor_model.present_current.size + \
+        start_addr_info_reader = self.__motor_model.present_pwm.address
+        len_info_reader = self.__motor_model.present_pwm.size + \
+                          self.__motor_model.present_current.size + \
                           self.__motor_model.present_velocity.size + \
                           self.__motor_model.present_position.size
         self.__bulk_info_reader = GroupSyncRead(self._port_handler,
@@ -354,24 +357,29 @@ class DynamixelController:
 
         data_stack = np.stack(data_arrays) # Size (num_motors, 10)
 
-        current_list = DXL_MAKEWORD(data_stack[:, 0], data_stack[:, 1])
-        velocity_list = DXL_MAKEDWORD(DXL_MAKEWORD(data_stack[:, 2], data_stack[:, 3]),
-                                      DXL_MAKEWORD(data_stack[:, 4], data_stack[:, 5]))
-        position_list = DXL_MAKEDWORD(DXL_MAKEWORD(data_stack[:, 6], data_stack[:, 7]),
-                                      DXL_MAKEWORD(data_stack[:, 8], data_stack[:, 9]))
+        pwm_list = DXL_MAKEWORD(data_stack[:, 0], data_stack[:, 1])
+        current_list = DXL_MAKEWORD(data_stack[:, 2], data_stack[:, 3])
+        velocity_list = DXL_MAKEDWORD(DXL_MAKEWORD(data_stack[:, 4], data_stack[:, 5]),
+                                      DXL_MAKEWORD(data_stack[:, 6], data_stack[:, 7]))
+        position_list = DXL_MAKEDWORD(DXL_MAKEWORD(data_stack[:, 8], data_stack[:, 9]),
+                                      DXL_MAKEWORD(data_stack[:, 10], data_stack[:, 11]))
 
         # handle negative values
         offset_vel_list = (velocity_list > 0x7fffffff).astype(int) * 4294967296
         velocity_list -= offset_vel_list
         offset_cur_list = (current_list > 0x7fff).astype(int) * 65536
         current_list -= offset_cur_list
+        pwm_list -= offset_cur_list
 
-        return (position_list, velocity_list, current_list)
+        return (pwm_list, position_list, velocity_list, current_list)
 
-    def read_info_with_unit(self, angle_unit="rad", current_unit="mA", retry=True, max_retry_time=3):
+    def read_info_with_unit(self, pwm_unit="percent", angle_unit="rad", current_unit="mA", retry=True, max_retry_time=3):
         '''
             Args:
-                angle_unit: the following units are accepted;
+                pwm_unit: the following units are accepted:
+                    (1) "percent": percentage of the PWM
+                    (2) "vol": effective voltage
+                angle_unit: the following units are accepted:
                     (1) "rad": rad for angle, rad/s for angular velocity
                     (2) "deg": degree for angle, degree/s for angular velocity
                 current_unit: the following units are accepted:
@@ -379,8 +387,12 @@ class DynamixelController:
                 retry: whether or not retry reading from the bus in case of faults like packet loss
                 max_retry_time: maximum retry time;
         '''
-        position_list, velocity_list, current_list = self.read_info(retry, max_retry_time)
-        position_list = (-1*position_list + 2048) # transform the origin
+        pwm_list, position_list, velocity_list, current_list = self.read_info(retry, max_retry_time)
+        position_list = (position_list - 2048) # transform the origin
+        if pwm_unit == "percent":
+            pwm_list = pwm_list * self.__pwm_percent_scale
+        elif pwm_unit == "vol":
+            pwm_list = pwm_list * self.__pwm_percent_scale * self.__max_voltage / 100.0
         if angle_unit == "rad":
             position_list = position_list * self.__position_rad_scale
             velocity_list = velocity_list * self.__velocity_rad_scale
@@ -391,7 +403,7 @@ class DynamixelController:
         if current_unit == "mA":
             current_list = current_list * self.__current_mA_scale
 
-        return position_list, velocity_list, current_list
+        return pwm_list, position_list, velocity_list, current_list
 
 class PortCommError(Exception):
     def __init__(self, msg) -> None:

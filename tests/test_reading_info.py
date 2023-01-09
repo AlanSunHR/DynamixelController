@@ -26,11 +26,14 @@ motor10 = XM430W210(10)
 motor11 = XM430W210(11)
 motor12 = XM430W210(12)
 
-dynamixel_controller = DynamixelController("/dev/ttyUSB1", [motor10, motor11, motor12])
+motor40 = XM430W210(40)
+
+dynamixel_controller = DynamixelController("/dev/ttyUSB0", [motor40])
 
 dynamixel_controller.activate_controller()
 
-dynamixel_controller.torque_off()
+# dynamixel_controller.torque_off()
 
 while True:
-    print(dynamixel_controller.read_info_with_unit(angle_unit="rad", current_unit="mA"))
+    print(dynamixel_controller.read_info_with_unit(pwm_unit="percent", angle_unit="rad", current_unit="mA"))
+    # print(dynamixel_controller.read_info())
