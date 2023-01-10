@@ -225,12 +225,12 @@ class DynamixelController:
 
     def set_goal_position_deg(self, position_list):
         np_position_list = np.array(position_list)
-        encoder_position_list = np.round(-1*np_position_list/self.__position_deg_scale + 2048).astype(int)
+        encoder_position_list = np.round(np_position_list/self.__position_deg_scale + 2048).astype(int)
         return self.set_goal_position(encoder_position_list)
 
     def set_goal_position_rad(self, position_list):
         np_position_list = np.array(position_list)
-        encoder_position_list = np.round(-1*np_position_list/self.__position_rad_scale + 2048).astype(int)
+        encoder_position_list = np.round(np_position_list/self.__position_rad_scale + 2048).astype(int)
         return self.set_goal_position(encoder_position_list)
 
     def set_drive_mode(self, mode_list):
