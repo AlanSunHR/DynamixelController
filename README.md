@@ -45,7 +45,7 @@ Python controller interface with improved buck reading and writing for faster co
     ```
 
 ## Install the package
-pip install -i https://test.pypi.org/simple/ dynamixel-controller==0.0.1
+pip install -i https://test.pypi.org/simple/ dynamixel-controller==0.0.12
 
 
 
