@@ -38,13 +38,14 @@ motor40 = XM430W210(40)
 motor41 = XM430W210(41)
 motor42 = XM430W210(42)
 motor_list = [
-    motor10, motor11, motor12, 
-    motor20, motor21, motor22,
-    # motor30, motor31, motor32,
-    # motor40, motor41, motor42
+    motor10, motor20, motor30, motor40,
+    motor11, motor12,
+    motor21, motor22,
+    motor31, motor32,
+    motor41, motor42
 ]
 
-dynamixel_controller = DynamixelController("/dev/ttyUSB0", motor_list, baudrate=2000000, latency_time=1)
+dynamixel_controller = DynamixelController("/dev/ttyUSB0", motor_list, baudrate=2000000, latency_time=1, reverse_direction=True)
 
 dynamixel_controller.activate_controller()
 
@@ -52,10 +53,10 @@ dynamixel_controller.activate_controller()
 max_reading_time = 0.0
 max_test_time = 10.0 # in seconds
 test_start_time = time.time()
-while time.time() - test_start_time < max_test_time:
+while True: # time.time() - test_start_time < max_test_time:
     time_start = time.time()
-    result_info = dynamixel_controller.read_info_with_unit(pwm_unit="percent", angle_unit="rad", current_unit="mA", retry=True)
-    print(result_info[0])
+    result_info = dynamixel_controller.read_info_with_unit(pwm_unit="percent", angle_unit="rad", current_unit="mA", retry=False, fast_read=True)
+    print(result_info[1])
     # pos = dynamixel_controller.read_present_position()
     time_elasped = round((time.time() - time_start)*1000.0, 1)
     if time_elasped > max_reading_time:

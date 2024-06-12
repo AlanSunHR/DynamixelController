@@ -24,11 +24,10 @@ import os
 import numpy as np
 
 from dynamixel_sdk import *
-# from dynamixel_models import BaseModel
 
 class DynamixelController:
     def __init__(self, port_name, motor_list, 
-        protocol=2.0, baudrate=4000000, latency_time=1) -> None:
+        protocol=2.0, baudrate=4000000, latency_time=1, reverse_direction=False) -> None:
         '''
             Args:
                 port_name: name of the usb port (/dev/ttyUSB0 for example)
@@ -45,6 +44,7 @@ class DynamixelController:
         self.protocol = protocol
         self.baudrate = baudrate
         self.latency_time = latency_time
+        self.reverse_direction = reverse_direction
 
         self._port_handler = PortHandler(self.port_name)
         self._packet_handler = PacketHandler(self.protocol)
@@ -88,6 +88,19 @@ class DynamixelController:
         self.__current_mA_scale = 2.69
         self.__pwm_percent_scale = 0.11299
         self.__max_voltage = 12.0
+
+    def offset_origin(self, encoder_list):
+        if not self.reverse_direction:
+            return (encoder_list - 2048)
+        else:
+            # Reserse mode
+            return (2048 - encoder_list)
+
+    def offset_degree_encoder(self, degree_encoder):
+        if not self.reverse_direction:
+            return degree_encoder + 2048
+        else:
+            return 2048 - degree_encoder
 
     def activate_controller(self):
         # Config motor list
@@ -226,12 +239,12 @@ class DynamixelController:
 
     def set_goal_position_deg(self, position_list):
         np_position_list = np.array(position_list)
-        encoder_position_list = np.round(np_position_list/self.__position_deg_scale + 2048).astype(int)
+        encoder_position_list = np.round(self.offset_degree_encoder(np_position_list/self.__position_deg_scale)).astype(int)
         return self.set_goal_position(encoder_position_list)
 
     def set_goal_position_rad(self, position_list):
         np_position_list = np.array(position_list)
-        encoder_position_list = np.round(np_position_list/self.__position_rad_scale + 2048).astype(int)
+        encoder_position_list = np.round(self.offset_degree_encoder(np_position_list/self.__position_rad_scale)).astype(int)
         return self.set_goal_position(encoder_position_list)
 
     def set_drive_mode(self, mode_list):
@@ -295,6 +308,8 @@ class DynamixelController:
         return self.__sync_write("goal_pwm", pwm_list)
 
     def set_goal_velocity(self, velocity_list):
+        if self.reverse_direction:
+            velocity_list = -velocity_list
         return self.__sync_write("goal_velocity", velocity_list)
 
     def set_goal_velocity_deg(self, velocity_list):
@@ -379,6 +394,12 @@ class DynamixelController:
                 current_list.append(self.__bulk_info_reader.getData(motor_id, self.__motor_model.present_current.address, self.__motor_model.present_current.size))
                 velocity_list.append(self.__bulk_info_reader.getData(motor_id, self.__motor_model.present_velocity.address, self.__motor_model.present_velocity.size))
                 position_list.append(self.__bulk_info_reader.getData(motor_id, self.__motor_model.present_position.address, self.__motor_model.present_position.size))
+
+            # Convert to numpy
+            pwm_list = np.array(pwm_list)
+            current_list = np.array(current_list)
+            velocity_list = np.array(velocity_list)
+            position_list = np.array(position_list)
         else:
             data_stack = np.stack(data_arrays) # Size (num_motors, 10)
 
@@ -396,7 +417,10 @@ class DynamixelController:
         current_list -= offset_cur_list
         pwm_list -= offset_cur_list
 
-        return (pwm_list, position_list, velocity_list, current_list)
+        if self.reverse_direction:
+            velocity_list = -velocity_list
+
+        return (position_list, velocity_list, current_list, pwm_list)
 
     def read_info_with_unit(self, pwm_unit="percent", angle_unit="rad", current_unit="mA", retry=True, max_retry_time=3, fast_read=True):
         '''
@@ -404,16 +428,18 @@ class DynamixelController:
                 pwm_unit: the following units are accepted:
                     (1) "percent": percentage of the PWM
                     (2) "vol": effective voltage
+                    (3) "raw": raw pwm register value
                 angle_unit: the following units are accepted:
                     (1) "rad": rad for angle, rad/s for angular velocity
                     (2) "deg": degree for angle, degree/s for angular velocity
                 current_unit: the following units are accepted:
                     (1) "mA": mA for current value
+                    (2) "raw": raw current register value
                 retry: whether or not retry reading from the bus in case of faults like packet loss
                 max_retry_time: maximum retry time;
         '''
-        pwm_list, position_list, velocity_list, current_list = self.read_info(retry, max_retry_time, fast_read=fast_read)
-        position_list = (position_list - 2048) # transform the origin
+        position_list, velocity_list, current_list, pwm_list = self.read_info(retry, max_retry_time, fast_read=fast_read)
+        position_list = self.offset_origin(position_list) # transform the origin
         if pwm_unit == "percent":
             pwm_list = pwm_list * self.__pwm_percent_scale
         elif pwm_unit == "vol":
@@ -428,7 +454,7 @@ class DynamixelController:
         if current_unit == "mA":
             current_list = current_list * self.__current_mA_scale
 
-        return pwm_list, position_list, velocity_list, current_list
+        return position_list, velocity_list, current_list, pwm_list
 
 class PortCommError(Exception):
     def __init__(self, msg) -> None:
