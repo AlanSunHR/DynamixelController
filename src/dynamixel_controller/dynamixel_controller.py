@@ -24,6 +24,7 @@ import os
 import numpy as np
 
 from dynamixel_sdk import *
+# from dynamixel_models import BaseModel
 
 class DynamixelController:
     def __init__(self, port_name, motor_list, 
@@ -322,7 +323,7 @@ class DynamixelController:
         encoder_vel_list = np.round(np_vel_list/self.__velocity_rad_scale).astype(int)
         return self.set_profile_velocity(encoder_vel_list)
 
-    def read_info(self, retry=True, max_retry_time=3):
+    def read_info(self, retry=True, max_retry_time=3, fast_read=True):
         '''
             Args:
                 retry: whether or not retry reading from the bus in case of faults like packet loss
@@ -339,30 +340,54 @@ class DynamixelController:
             return type:
             (position_list, velocity_list, current_list)
         '''
-        dxl_comm_result = self.__bulk_info_reader.txRxPacket()
-        data_arrays = list(self.__bulk_info_reader.data_dict.values())
+        if fast_read:
+            dxl_comm_result = self.__bulk_info_reader.fastSyncRead()
+        else:
+            dxl_comm_result = self.__bulk_info_reader.txRxPacket()
+            data_arrays = list(self.__bulk_info_reader.data_dict.values())
 
-        # In case of communication error, read again
-        if dxl_comm_result != COMM_SUCCESS and retry:
-            retry_time = 0
-            while dxl_comm_result != COMM_SUCCESS and retry_time < max_retry_time:
-                #print(dxl_comm_result)
-                dxl_comm_result = self.__bulk_info_reader.txRxPacket()
-                data_arrays = list(self.__bulk_info_reader.data_dict.values())
-                retry_time += 1
+            # In case of communication error, read again
+            if dxl_comm_result != COMM_SUCCESS and retry:
+                retry_time = 0
+                while dxl_comm_result != COMM_SUCCESS and retry_time < max_retry_time:
+                    #print(dxl_comm_result)
+                    dxl_comm_result = self.__bulk_info_reader.txRxPacket()
+                    data_arrays = list(self.__bulk_info_reader.data_dict.values())
+                    retry_time += 1
 
         # If still cannot read normally
         if dxl_comm_result != COMM_SUCCESS:
             raise PortCommError("Packet reading error while trying to read information from the bus. ")
 
-        data_stack = np.stack(data_arrays) # Size (num_motors, 10)
+        if fast_read:
+            pwm_list = []
+            current_list = []
+            velocity_list = []
+            position_list = []
+            for motor_id in self.__motor_ids:
+                dxl_getdata_result = self.__bulk_info_reader.isAvailable(
+                    motor_id,
+                    self.__motor_model.present_pwm.address,
+                    self.__motor_model.present_pwm.size + \
+                    self.__motor_model.present_current.size + \
+                    self.__motor_model.present_velocity.size + \
+                    self.__motor_model.present_position.size
+                )
+                if not dxl_getdata_result:
+                    raise PortCommError("Failed to fast sync read data from motor of id {}. ".format(motor_id))
+                pwm_list.append(self.__bulk_info_reader.getData(motor_id, self.__motor_model.present_pwm.address, self.__motor_model.present_pwm.size))
+                current_list.append(self.__bulk_info_reader.getData(motor_id, self.__motor_model.present_current.address, self.__motor_model.present_current.size))
+                velocity_list.append(self.__bulk_info_reader.getData(motor_id, self.__motor_model.present_velocity.address, self.__motor_model.present_velocity.size))
+                position_list.append(self.__bulk_info_reader.getData(motor_id, self.__motor_model.present_position.address, self.__motor_model.present_position.size))
+        else:
+            data_stack = np.stack(data_arrays) # Size (num_motors, 10)
 
-        pwm_list = DXL_MAKEWORD(data_stack[:, 0], data_stack[:, 1])
-        current_list = DXL_MAKEWORD(data_stack[:, 2], data_stack[:, 3])
-        velocity_list = DXL_MAKEDWORD(DXL_MAKEWORD(data_stack[:, 4], data_stack[:, 5]),
-                                      DXL_MAKEWORD(data_stack[:, 6], data_stack[:, 7]))
-        position_list = DXL_MAKEDWORD(DXL_MAKEWORD(data_stack[:, 8], data_stack[:, 9]),
-                                      DXL_MAKEWORD(data_stack[:, 10], data_stack[:, 11]))
+            pwm_list = DXL_MAKEWORD(data_stack[:, 0], data_stack[:, 1])
+            current_list = DXL_MAKEWORD(data_stack[:, 2], data_stack[:, 3])
+            velocity_list = DXL_MAKEDWORD(DXL_MAKEWORD(data_stack[:, 4], data_stack[:, 5]),
+                                        DXL_MAKEWORD(data_stack[:, 6], data_stack[:, 7]))
+            position_list = DXL_MAKEDWORD(DXL_MAKEWORD(data_stack[:, 8], data_stack[:, 9]),
+                                        DXL_MAKEWORD(data_stack[:, 10], data_stack[:, 11]))
 
         # handle negative values
         offset_vel_list = (velocity_list > 0x7fffffff).astype(int) * 4294967296
@@ -373,7 +398,7 @@ class DynamixelController:
 
         return (pwm_list, position_list, velocity_list, current_list)
 
-    def read_info_with_unit(self, pwm_unit="percent", angle_unit="rad", current_unit="mA", retry=True, max_retry_time=3):
+    def read_info_with_unit(self, pwm_unit="percent", angle_unit="rad", current_unit="mA", retry=True, max_retry_time=3, fast_read=True):
         '''
             Args:
                 pwm_unit: the following units are accepted:
@@ -387,7 +412,7 @@ class DynamixelController:
                 retry: whether or not retry reading from the bus in case of faults like packet loss
                 max_retry_time: maximum retry time;
         '''
-        pwm_list, position_list, velocity_list, current_list = self.read_info(retry, max_retry_time)
+        pwm_list, position_list, velocity_list, current_list = self.read_info(retry, max_retry_time, fast_read=fast_read)
         position_list = (position_list - 2048) # transform the origin
         if pwm_unit == "percent":
             pwm_list = pwm_list * self.__pwm_percent_scale

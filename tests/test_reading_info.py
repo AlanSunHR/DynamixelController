@@ -19,21 +19,47 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), "../src"))
 from dynamixel_controller import DynamixelController, XM430W210
+import time
 
 motor10 = XM430W210(10)
 motor11 = XM430W210(11)
 motor12 = XM430W210(12)
-
+motor20 = XM430W210(20)
+motor21 = XM430W210(21)
+motor22 = XM430W210(22)
+motor30 = XM430W210(30)
+motor31 = XM430W210(31)
+motor32 = XM430W210(32)
 motor40 = XM430W210(40)
+motor41 = XM430W210(41)
+motor42 = XM430W210(42)
+motor_list = [
+    motor10, motor11, motor12, 
+    motor20, motor21, motor22,
+    # motor30, motor31, motor32,
+    # motor40, motor41, motor42
+]
 
-dynamixel_controller = DynamixelController("/dev/ttyUSB0", [motor40])
+dynamixel_controller = DynamixelController("/dev/ttyUSB0", motor_list, baudrate=2000000, latency_time=1)
 
 dynamixel_controller.activate_controller()
 
 # dynamixel_controller.torque_off()
-
-while True:
-    print(dynamixel_controller.read_info_with_unit(pwm_unit="percent", angle_unit="rad", current_unit="mA"))
+max_reading_time = 0.0
+max_test_time = 10.0 # in seconds
+test_start_time = time.time()
+while time.time() - test_start_time < max_test_time:
+    time_start = time.time()
+    result_info = dynamixel_controller.read_info_with_unit(pwm_unit="percent", angle_unit="rad", current_unit="mA", retry=True)
+    print(result_info[0])
+    # pos = dynamixel_controller.read_present_position()
+    time_elasped = round((time.time() - time_start)*1000.0, 1)
+    if time_elasped > max_reading_time:
+        max_reading_time = time_elasped
+    print(time_elasped, "; Max Read Time", max_reading_time)
     # print(dynamixel_controller.read_info())
+    time.sleep(0.02)

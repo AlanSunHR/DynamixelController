@@ -8,3 +8,9 @@ src/dynamixel_controller.egg-info/PKG-INFO
 src/dynamixel_controller.egg-info/SOURCES.txt
 src/dynamixel_controller.egg-info/dependency_links.txt
 src/dynamixel_controller.egg-info/top_level.txt
+tests/test_current_control.py
+tests/test_position_control.py
+tests/test_reading_info.py
+tests/test_set_operating_mode.py
+tests/test_velocity_control.py
+tests/test_writing_values.py

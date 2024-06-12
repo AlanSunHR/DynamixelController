@@ -28,9 +28,9 @@ Python controller interface with improved buck reading and writing for faster co
 ## Pre-requests
 
 1. The package is tested and targeted to run only on ubuntu. (tested on Ubuntu 18.04)
-1. Download dynamixel_sdk source code:
+1. Download dynamixel_sdk source code (we use develop branch to take the advantage of fast sync read/write):
     ```bash
-    git clone https://github.com/ROBOTIS-GIT/DynamixelSDK.git
+    git clone https://github.com/ROBOTIS-GIT/DynamixelSDK/tree/develop
     ```
 1. Navigate to DynamixelSDK/python/src.
 1. Open the file "port_handler.py". In line 27, change the variable LATENCY_TIMER to the USB latency time you set.
